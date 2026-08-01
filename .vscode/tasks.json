@@ -1,0 +1,52 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Instalar dependências",
+      "type": "shell",
+      "command": "npm ci",
+      "problemMatcher": []
+    },
+    {
+      "label": "Executar aplicação",
+      "type": "shell",
+      "command": "npm start",
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "Executar testes",
+      "type": "shell",
+      "command": "npm test",
+      "group": {
+        "kind": "test",
+        "isDefault": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Construir imagem Docker",
+      "type": "shell",
+      "command": "docker build -t painel-nuvem:v1.0 .",
+      "problemMatcher": []
+    },
+    {
+      "label": "Executar contêiner",
+      "type": "shell",
+      "command": "docker run --rm -d --name painel-nuvem -p 3000:3000 painel-nuvem:v1.0",
+      "problemMatcher": []
+    },
+    {
+      "label": "Parar contêiner",
+      "type": "shell",
+      "command": "docker stop painel-nuvem",
+      "problemMatcher": []
+    },
+    {
+      "label": "Verificar recursos Kubernetes",
+      "type": "shell",
+      "command": "./scripts/inspect-aks.sh",
+      "problemMatcher": []
+    }
+  ]
+}

@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Painel de Implantação em Nuvem</title>
+  <style>
+    :root {
+      --vermelho-institucional: #d6001c;
+      --vermelho-escuro: #a8001a;
+      --cinza-fundo: #f5f5f5;
+      --cinza-escuro: #2b2b2b;
+      --cinza-medio: #5a5a5a;
+      --branco: #ffffff;
+      --verde-ok: #1b8a3d;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Arial, Helvetica, sans-serif;
+      background-color: var(--cinza-fundo);
+      color: var(--cinza-escuro);
+      line-height: 1.5;
+    }
+
+    header {
+      background-color: var(--vermelho-institucional);
+      color: var(--branco);
+      padding: 1.5rem 1rem;
+      text-align: center;
+    }
+
+    header h1 {
+      margin: 0 0 0.25rem 0;
+      font-size: 1.8rem;
+    }
+
+    header p {
+      margin: 0;
+      font-size: 1rem;
+      opacity: 0.95;
+    }
+
+    main {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 1.5rem 1rem 3rem 1rem;
+      display: grid;
+      gap: 1.25rem;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    }
+
+    .cartao {
+      background-color: var(--branco);
+      border: 1px solid #e0e0e0;
+      border-radius: 10px;
+      padding: 1.25rem;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+    }
+
+    .cartao h2 {
+      margin-top: 0;
+      font-size: 1.1rem;
+      color: var(--vermelho-institucional);
+      border-bottom: 2px solid var(--cinza-fundo);
+      padding-bottom: 0.5rem;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background-color: #e8f6ec;
+      color: var(--verde-ok);
+      font-weight: 600;
+      padding: 0.4rem 0.8rem;
+      border-radius: 999px;
+      font-size: 0.9rem;
+    }
+
+    .status-badge::before {
+      content: "";
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background-color: var(--verde-ok);
+      display: inline-block;
+    }
+
+    .lista-info {
+      list-style: none;
+      padding: 0;
+      margin: 0.5rem 0 0 0;
+    }
+
+    .lista-info li {
+      display: flex;
+      justify-content: space-between;
+      padding: 0.4rem 0;
+      border-bottom: 1px dashed #e0e0e0;
+      font-size: 0.95rem;
+    }
+
+    .lista-info li:last-child {
+      border-bottom: none;
+    }
+
+    .lista-info span:first-child {
+      color: var(--cinza-medio);
+    }
+
+    .lista-info span:last-child {
+      font-weight: 600;
+    }
+
+    .fluxo {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.9rem;
+      color: var(--cinza-escuro);
+    }
+
+    .fluxo .etapa {
+      background-color: var(--cinza-fundo);
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      padding: 0.35rem 0.6rem;
+    }
+
+    .fluxo .seta {
+      color: var(--vermelho-institucional);
+      font-weight: bold;
+    }
+
+    .cartao.full {
+      grid-column: 1 / -1;
+    }
+
+    button {
+      background-color: var(--vermelho-institucional);
+      color: var(--branco);
+      border: none;
+      border-radius: 6px;
+      padding: 0.6rem 1.1rem;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: background-color 0.15s ease-in-out;
+    }
+
+    button:hover {
+      background-color: var(--vermelho-escuro);
+    }
+
+    button:disabled {
+      background-color: #c8c8c8;
+      cursor: not-allowed;
+    }
+
+    pre#resultado-info {
+      background-color: var(--cinza-fundo);
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 0.9rem;
+      margin-top: 0.9rem;
+      overflow-x: auto;
+      font-size: 0.85rem;
+      white-space: pre-wrap;
+      word-break: break-word;
+      min-height: 1.5rem;
+    }
+
+    footer {
+      text-align: center;
+      color: var(--cinza-medio);
+      font-size: 0.8rem;
+      padding-bottom: 2rem;
+    }
+
+    @media (max-width: 480px) {
+      header h1 {
+        font-size: 1.4rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Painel de Implantação em Nuvem</h1>
+    <p>Laboratório didático &mdash; Estácio &mdash; Nuvem privada e nuvem pública</p>
+  </header>
+
+  <main>
+    <section class="cartao">
+      <h2>Status da aplicação</h2>
+      <p class="status-badge">Aplicação funcionando</p>
+      <ul class="lista-info">
+        <li><span>Versão</span> <span id="info-versao">carregando...</span></li>
+        <li><span>Ambiente</span> <span id="info-ambiente">carregando...</span></li>
+        <li><span>Tecnologia</span> <span>Node.js + Express</span></li>
+        <li><span>Endpoint /healthz</span> <span class="status-badge" style="padding: 0.2rem 0.6rem;">disponível</span></li>
+      </ul>
+    </section>
+
+    <section class="cartao">
+      <h2>Onde esta aplicação está executando?</h2>
+      <p>
+        Esta página está sendo servida por um processo Node.js dentro de um
+        <strong>contêiner Docker</strong>. O mesmo contêiner pode ser executado
+        na sua máquina local, em um servidor de nuvem privada, ou em um
+        cluster Kubernetes gerenciado na nuvem pública, como o
+        <strong>AKS Automatic</strong>, sem que o código-fonte precise ser
+        alterado.
+      </p>
+    </section>
+
+    <section class="cartao full">
+      <h2>Fluxo de implantação deste laboratório</h2>
+      <div class="fluxo">
+        <span class="etapa">VS Code</span>
+        <span class="seta">&rarr;</span>
+        <span class="etapa">GitHub</span>
+        <span class="seta">&rarr;</span>
+        <span class="etapa">GitHub Actions</span>
+        <span class="seta">&rarr;</span>
+        <span class="etapa">Azure Container Registry</span>
+        <span class="seta">&rarr;</span>
+        <span class="etapa">AKS Automatic</span>
+      </div>
+    </section>
+
+    <section class="cartao full">
+      <h2>Consultar informações da aplicação</h2>
+      <p>
+        Clique no botão abaixo para consultar o endpoint
+        <code>/api/info</code> e ver os dados retornados pelo servidor em
+        tempo real.
+      </p>
+      <button id="botao-consultar" type="button">Consultar /api/info</button>
+      <pre id="resultado-info" aria-live="polite"></pre>
+    </section>
+  </main>
+
+  <footer>
+    <p>Painel de Implantação em Nuvem &mdash; projeto didático para fins de aula.</p>
+  </footer>
+
+  <script>
+    async function carregarInfoInicial() {
+      try {
+        const resposta = await fetch("/api/info");
+        const dados = await resposta.json();
+        document.getElementById("info-versao").textContent = dados.versao;
+        document.getElementById("info-ambiente").textContent = dados.ambiente;
+      } catch (erro) {
+        document.getElementById("info-versao").textContent = "indisponível";
+        document.getElementById("info-ambiente").textContent = "indisponível";
+      }
+    }
+
+    async function consultarInfo() {
+      const botao = document.getElementById("botao-consultar");
+      const resultado = document.getElementById("resultado-info");
+
+      botao.disabled = true;
+      resultado.textContent = "Consultando /api/info...";
+
+      try {
+        const resposta = await fetch("/api/info");
+        if (!resposta.ok) {
+          throw new Error("Resposta HTTP " + resposta.status);
+        }
+        const dados = await resposta.json();
+        resultado.textContent = JSON.stringify(dados, null, 2);
+      } catch (erro) {
+        resultado.textContent = "Não foi possível consultar /api/info: " + erro.message;
+      } finally {
+        botao.disabled = false;
+      }
+    }
+
+    document.getElementById("botao-consultar").addEventListener("click", consultarInfo);
+    carregarInfoInicial();
+  </script>
+</body>
+</html>

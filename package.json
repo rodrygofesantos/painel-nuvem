@@ -1,0 +1,20 @@
+{
+  "name": "painel-nuvem",
+  "version": "1.0.0",
+  "description": "Aplicacao didatica para demonstrar implantacao em nuvem privada e publica usando Docker, GitHub Actions e AKS Automatic.",
+  "private": true,
+  "license": "MIT",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "test": "node --test",
+    "check": "npm test"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  }
+}

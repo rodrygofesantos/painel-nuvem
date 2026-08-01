@@ -1,0 +1,32 @@
+# Dependências instaladas localmente (recriadas com "npm ci")
+node_modules/
+
+# Variáveis de ambiente locais (nunca versionar segredos ou valores locais)
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+
+# Arquivos temporários
+*.tmp
+*.temp
+tmp/
+
+# Cobertura de testes, caso venha a ser gerada
+coverage/
+
+# Manifesto gerado dinamicamente pelo workflow (imagem já substituída)
+manifests/deployment.gerado.yaml
+
+# Arquivos de sistema operacional
+.DS_Store
+Thumbs.db
+
+# Configurações locais do editor que não devem ser compartilhadas
+.vscode/*
+!.vscode/tasks.json
+!.vscode/extensions.json

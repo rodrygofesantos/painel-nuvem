@@ -1,0 +1,9 @@
+# Namespace dedicado ao laboratório. Isolar os recursos em um namespace
+# próprio facilita a limpeza e evita conflitos com outras aplicações
+# que possam existir no mesmo cluster AKS Automatic.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: aula-nuvem
+  labels:
+    finalidade: aula-implantacao-nuvem

@@ -1,0 +1,98 @@
+# Deployment do painel-nuvem no namespace "aula-nuvem".
+# A imagem é substituída automaticamente pelo GitHub Actions no momento
+# da implantação (veja o placeholder IMAGE_PLACEHOLDER abaixo).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: painel-nuvem
+  namespace: aula-nuvem
+  labels:
+    app: painel-nuvem
+spec:
+  # Duas réplicas demonstram, de forma simples, como o Kubernetes distribui
+  # e mantém múltiplas cópias da aplicação em execução.
+  replicas: 2
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: painel-nuvem
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: painel-nuvem
+    spec:
+      # securityContext no nível do Pod: reforça que nenhum contêiner deste
+      # Pod deve rodar como usuário root.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: painel-nuvem
+          # Este valor é substituído pelo workflow do GitHub Actions com a
+          # imagem real publicada no Azure Container Registry, usando o SHA
+          # do commit como tag (ex: acraulaXXXX.azurecr.io/painel-nuvem:abc1234).
+          image: IMAGE_PLACEHOLDER
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 3000
+          envFrom:
+            - configMapRef:
+                name: painel-nuvem-config
+          # securityContext no nível do contêiner: bloqueia elevação de
+          # privilégios e remove todas as capabilities do Linux.
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          # O Node.js pode precisar escrever arquivos temporários; como o
+          # sistema de arquivos raiz é somente leitura, disponibilizamos um
+          # volume em memória apenas para o diretório /tmp.
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "250m"
+              memory: "256Mi"
+          # startupProbe: dá tempo para a aplicação iniciar antes de as
+          # probes de liveness/readiness começarem a contar falhas.
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            failureThreshold: 10
+            periodSeconds: 3
+          # readinessProbe: define quando o Pod está pronto para receber
+          # tráfego do Service.
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 5
+            failureThreshold: 3
+          # livenessProbe: reinicia o contêiner caso ele pare de responder.
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 3
+      volumes:
+        - name: tmp
+          emptyDir: {}

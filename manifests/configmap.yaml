@@ -1,0 +1,13 @@
+# ConfigMap com as variáveis de ambiente não sigilosas da aplicação.
+# Nenhuma senha, token ou segredo deve ser colocado aqui: ConfigMaps não
+# são criptografados e ficam visíveis para quem tiver acesso ao namespace.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: painel-nuvem-config
+  namespace: aula-nuvem
+data:
+  APP_NAME: "Painel de Implantação em Nuvem"
+  APP_ENVIRONMENT: "AKS Automatic"
+  APP_VERSION: "v1.0"
+  PORT: "3000"

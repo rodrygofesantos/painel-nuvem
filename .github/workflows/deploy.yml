@@ -1,0 +1,177 @@
+name: Deploy Painel Nuvem no AKS
+
+# Gatilhos do workflow:
+# - push na branch main: build, push da imagem e implantação no AKS Automatic.
+# - workflow_dispatch: permite disparar manualmente pela guia Actions.
+# - pull_request: executa apenas validação (instalação, testes e build local
+#   da imagem), sem publicar nada no Azure. Isso protege o cluster contra
+#   implantações vindas de branches ainda não revisadas.
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch: {}
+
+# Permissões mínimas necessárias. "id-token: write" é o que permite ao
+# GitHub Actions solicitar um token OIDC de curta duração para se autenticar
+# no Azure, sem a necessidade de um client secret armazenado no repositório.
+permissions:
+  id-token: write
+  contents: read
+
+# Evita que duas implantações rodem ao mesmo tempo para o mesmo branch.
+# Uma nova execução espera a anterior terminar em vez de cancelá-la,
+# preservando o histórico de implantações.
+concurrency:
+  group: deploy-painel-nuvem-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  IMAGE_NAME: ${{ vars.IMAGE_NAME || 'painel-nuvem' }}
+  KUBERNETES_NAMESPACE: ${{ vars.KUBERNETES_NAMESPACE || 'aula-nuvem' }}
+
+jobs:
+  # ---------------------------------------------------------------------
+  # Job 1: validação. Executa sempre (push, pull_request e workflow_dispatch).
+  # Garante que o código instala, passa nos testes e que a imagem Docker
+  # consegue ser construída antes de qualquer publicação no Azure.
+  # ---------------------------------------------------------------------
+  validar:
+    name: Validar aplicação
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Baixar código do repositório
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "npm"
+
+      - name: Instalar dependências (npm ci)
+        run: npm ci
+
+      - name: Executar testes automatizados
+        run: npm test
+
+      - name: Construir imagem Docker (validação local)
+        run: docker build -t "${{ env.IMAGE_NAME }}:validacao" .
+
+  # ---------------------------------------------------------------------
+  # Job 2: implantação. Só executa em push na branch main ou quando
+  # disparado manualmente (workflow_dispatch) — nunca em pull requests.
+  # ---------------------------------------------------------------------
+  implantar:
+    name: Publicar imagem e implantar no AKS
+    needs: validar
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Baixar código do repositório
+        uses: actions/checkout@v4
+
+      # Autenticação no Azure usando OIDC: o GitHub Actions troca um token
+      # de curta duração com o Microsoft Entra ID, sem usar client secret
+      # nem senha armazenados no repositório.
+      - name: Autenticar no Azure via OIDC
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Descobrir endereço do Azure Container Registry
+        run: |
+          set -euo pipefail
+          LOGIN_SERVER=$(az acr show \
+            --name "${{ vars.AZURE_ACR_NAME }}" \
+            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --query loginServer \
+            --output tsv)
+          echo "Endereço do ACR: $LOGIN_SERVER"
+          echo "ACR_LOGIN_SERVER=$LOGIN_SERVER" >> "$GITHUB_ENV"
+
+      - name: Autenticar no Azure Container Registry
+        run: az acr login --name "${{ vars.AZURE_ACR_NAME }}"
+
+      - name: Definir tag imutável da imagem
+        run: echo "IMAGE_TAG=${{ github.sha }}" >> "$GITHUB_ENV"
+
+      - name: Construir imagem da aplicação
+        run: |
+          set -euo pipefail
+          docker build \
+            -t "$ACR_LOGIN_SERVER/${{ env.IMAGE_NAME }}:$IMAGE_TAG" \
+            .
+
+      - name: Publicar imagem no Azure Container Registry
+        run: docker push "$ACR_LOGIN_SERVER/${{ env.IMAGE_NAME }}:$IMAGE_TAG"
+
+      - name: Obter credenciais do cluster AKS Automatic
+        run: |
+          az aks get-credentials \
+            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --name "${{ vars.AZURE_AKS_CLUSTER }}" \
+            --overwrite-existing
+
+      - name: Criar ou atualizar o namespace do laboratório
+        run: kubectl apply -f manifests/namespace.yaml
+
+      - name: Aplicar ConfigMap
+        run: kubectl apply -f manifests/configmap.yaml
+
+      - name: Substituir imagem placeholder pelo endereço real do ACR
+        run: |
+          set -euo pipefail
+          sed "s|IMAGE_PLACEHOLDER|$ACR_LOGIN_SERVER/${{ env.IMAGE_NAME }}:$IMAGE_TAG|g" \
+            manifests/deployment.yaml > manifests/deployment.gerado.yaml
+          cat manifests/deployment.gerado.yaml
+
+      - name: Aplicar Deployment
+        run: kubectl apply -f manifests/deployment.gerado.yaml
+
+      - name: Aplicar Service
+        run: kubectl apply -f manifests/service.yaml
+
+      - name: Acompanhar o rollout do Deployment
+        run: |
+          kubectl rollout status deployment/painel-nuvem \
+            -n "${{ env.KUBERNETES_NAMESPACE }}" \
+            --timeout=180s
+
+      - name: Exibir estado dos Pods
+        run: kubectl get pods -n "${{ env.KUBERNETES_NAMESPACE }}" -o wide
+
+      - name: Exibir estado do Service
+        run: kubectl get service painel-nuvem -n "${{ env.KUBERNETES_NAMESPACE }}"
+
+      - name: Apresentar endpoint externo (quando já disponível)
+        run: |
+          set +e
+          IP_EXTERNO=$(kubectl get service painel-nuvem \
+            -n "${{ env.KUBERNETES_NAMESPACE }}" \
+            -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+          if [ -n "$IP_EXTERNO" ]; then
+            echo "Aplicação disponível em: http://$IP_EXTERNO"
+          else
+            echo "O IP externo ainda não foi atribuído pelo Azure."
+            echo "Execute 'kubectl get service painel-nuvem -n ${{ env.KUBERNETES_NAMESPACE }} --watch' para acompanhar."
+          fi
+
+      - name: Gravar resumo da implantação
+        if: always()
+        run: |
+          {
+            echo "## Resumo da implantação — painel-nuvem"
+            echo ""
+            echo "- **Imagem publicada:** \`$ACR_LOGIN_SERVER/${{ env.IMAGE_NAME }}:$IMAGE_TAG\`"
+            echo "- **Namespace:** \`${{ env.KUBERNETES_NAMESPACE }}\`"
+            echo "- **Cluster:** \`${{ vars.AZURE_AKS_CLUSTER }}\`"
+            echo "- **Commit:** \`${{ github.sha }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,24 @@
+# Service do tipo LoadBalancer: no AKS Automatic, isso provisiona
+# automaticamente um balanceador de carga público na Azure, com um IP
+# externo que os alunos poderão acessar pela internet.
+#
+# Observação para produção: este laboratório usa um LoadBalancer simples
+# por ser didático. Em ambientes com vários serviços, domínios próprios e
+# certificados TLS, avalie o uso da Gateway API do Kubernetes, um provedor
+# de DNS e um gerenciador de certificados (como o cert-manager).
+apiVersion: v1
+kind: Service
+metadata:
+  name: painel-nuvem
+  namespace: aula-nuvem
+  labels:
+    app: painel-nuvem
+spec:
+  type: LoadBalancer
+  selector:
+    app: painel-nuvem
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: 3000
