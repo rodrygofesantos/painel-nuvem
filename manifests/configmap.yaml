@@ -5,7 +5,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: painel-nuvem-config
-  namespace: aula-nuvem
+  namespace: NAMESPACE_PLACEHOLDER
 data:
   APP_NAME: "Painel de Implantação em Nuvem"
   APP_ENVIRONMENT: "AKS Automatic"

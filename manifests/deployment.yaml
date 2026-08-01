@@ -5,7 +5,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: painel-nuvem
-  namespace: aula-nuvem
+  namespace: NAMESPACE_PLACEHOLDER
   labels:
     app: painel-nuvem
 spec:

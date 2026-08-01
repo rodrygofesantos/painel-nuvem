@@ -147,24 +147,32 @@ jobs:
             --name "${{ vars.AZURE_AKS_CLUSTER }}" \
             --overwrite-existing
 
-      - name: Criar ou atualizar o namespace do laboratório
-        run: kubectl apply -f manifests/namespace.yaml
-
-      - name: Aplicar ConfigMap
-        run: kubectl apply -f manifests/configmap.yaml
-
-      - name: Substituir imagem placeholder pelo endereço real do ACR
+      - name: Preparar manifestos Kubernetes com namespace e imagem
         run: |
           set -euo pipefail
-          sed "s|IMAGE_PLACEHOLDER|$ACR_LOGIN_SERVER/${{ env.IMAGE_NAME }}:$IMAGE_TAG|g" \
+          export NAMESPACE="${{ env.KUBERNETES_NAMESPACE }}"
+          sed "s|NAMESPACE_PLACEHOLDER|$NAMESPACE|g" manifests/namespace.yaml > manifests/namespace.gerado.yaml
+          sed "s|NAMESPACE_PLACEHOLDER|$NAMESPACE|g" manifests/configmap.yaml > manifests/configmap.gerado.yaml
+          sed "s|NAMESPACE_PLACEHOLDER|$NAMESPACE|g" manifests/service.yaml > manifests/service.gerado.yaml
+          sed \
+            -e "s|NAMESPACE_PLACEHOLDER|$NAMESPACE|g" \
+            -e "s|IMAGE_PLACEHOLDER|$ACR_LOGIN_SERVER/${{ env.IMAGE_NAME }}:$IMAGE_TAG|g" \
             manifests/deployment.yaml > manifests/deployment.gerado.yaml
+          echo "Manifestos preparados para o namespace: $NAMESPACE"
+          echo "--- deployment ---"
           cat manifests/deployment.gerado.yaml
+
+      - name: Criar ou atualizar o namespace do laboratório
+        run: kubectl apply -f manifests/namespace.gerado.yaml
+
+      - name: Aplicar ConfigMap
+        run: kubectl apply -f manifests/configmap.gerado.yaml
 
       - name: Aplicar Deployment
         run: kubectl apply -f manifests/deployment.gerado.yaml
 
       - name: Aplicar Service
-        run: kubectl apply -f manifests/service.yaml
+        run: kubectl apply -f manifests/service.gerado.yaml
 
       - name: Acompanhar o rollout do Deployment
         run: |

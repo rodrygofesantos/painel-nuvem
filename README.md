@@ -269,6 +269,26 @@ Namespace Kubernetes: aula-nuvem
 Nome da imagem: painel-nuvem
 ```
 
+Exemplo de configuração no GitHub:
+
+Secrets:
+
+```text
+AZURE_CLIENT_ID=00000000-0000-0000-0000-000000000000
+AZURE_TENANT_ID=11111111-1111-1111-1111-111111111111
+AZURE_SUBSCRIPTION_ID=22222222-2222-2222-2222-222222222222
+```
+
+Variables:
+
+```text
+AZURE_RESOURCE_GROUP=rg-painel-nuvem
+AZURE_AKS_CLUSTER=aks-aula-auto
+AZURE_ACR_NAME=acraula123
+KUBERNETES_NAMESPACE=aula-nuvem
+IMAGE_NAME=painel-nuvem
+```
+
 Para a autenticação com o GitHub Actions, a ideia é esta:
 
 1. criar uma identidade no Microsoft Entra ID;
