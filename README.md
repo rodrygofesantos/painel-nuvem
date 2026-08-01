@@ -152,14 +152,33 @@ painel-nuvem/
 └── .github/workflows/
 ```
 
-## Próximos passos
+## Implantação em nuvem
 
-Depois de validar o ambiente local e o container, o próximo passo natural é:
+Depois de validar a aplicação localmente e em container, o próximo passo é levar o projeto para um ambiente de nuvem.
 
-1. publicar o código no GitHub;
-2. configurar o GitHub Actions;
-3. conectar o repositório à Azure;
-4. implantar a aplicação em um cluster Kubernetes.
+O fluxo de implantação funciona assim:
+
+1. O código é enviado para o GitHub.
+2. O GitHub Actions executa os testes e monta a imagem Docker.
+3. A imagem é enviada para um registro de containers, como o Azure Container Registry (ACR).
+4. O Kubernetes, por exemplo no AKS da Azure, baixa essa imagem e sobe os pods da aplicação.
+5. O Service do Kubernetes expõe a aplicação para acesso externo.
+
+Para isso, este repositório já inclui:
+
+- o workflow de CI/CD em .github/workflows/;
+- os manifestos Kubernetes em manifests/;
+- a configuração da aplicação para rodar na porta 3000.
+
+Em termos práticos, o processo envolve:
+
+- criar ou selecionar um recurso no Azure;
+- configurar as credenciais do GitHub Actions;
+- fazer o push para a branch principal;
+- acompanhar a execução do workflow;
+- validar a aplicação no cluster.
+
+Esse é o caminho natural para transformar o projeto local em uma aplicação disponível na nuvem.
 
 ## Dicas rápidas
 
