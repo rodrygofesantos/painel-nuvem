@@ -180,6 +180,115 @@ Em termos práticos, o processo envolve:
 
 Esse é o caminho natural para transformar o projeto local em uma aplicação disponível na nuvem.
 
+### Criar um registro de imagens no Azure
+
+O Azure Container Registry (ACR) é o repositório onde a imagem Docker da sua aplicação será armazenada antes de ser usada pelo Kubernetes. Pense nele como um “depósito” central de imagens, semelhante a um repositório de pacotes, porém para containers.
+
+Quando o GitHub Actions construí a imagem Docker, ele precisa enviar essa imagem para algum lugar. O ACR é esse lugar. Depois, o AKS busca a imagem no ACR e sobe os pods da aplicação.
+
+#### Passo a passo
+
+1. Faça login na Azure:
+
+```bash
+az login
+```
+
+2. Verifique a assinatura ativa:
+
+```bash
+az account list --output table
+az account set --subscription "<nome-ou-id-da-sua-assinatura>"
+```
+
+3. Crie um grupo de recursos:
+
+```bash
+az group create --name rg-painel-nuvem --location brazilsouth
+```
+
+4. Crie o Azure Container Registry:
+
+```bash
+az acr create \
+  --resource-group rg-painel-nuvem \
+  --name <nome-unico-do-acr> \
+  --sku Basic
+```
+
+Importante:
+
+- o nome do ACR precisa ser único globalmente na Azure;
+- use somente letras minúsculas e números;
+- o valor `Basic` é suficiente para começar.
+
+5. Verifique se o registro foi criado com sucesso:
+
+```bash
+az acr show --name <nome-unico-do-acr> --resource-group rg-painel-nuvem --output table
+```
+
+#### Por que isso é importante?
+
+Sem o ACR, o GitHub Actions não consegue publicar a imagem Docker em um lugar acessível pelo cluster. O AKS precisa de um registro para localizar e baixar a imagem que será executada.
+
+#### Configurar o GitHub Actions para o Azure
+
+Depois de criar o ACR, você precisa informar ao GitHub quais valores da Azure ele deve usar. No repositório, acesse Settings → Secrets and variables → Actions.
+
+Cadastre os seguintes secrets:
+
+```text
+AZURE_CLIENT_ID
+AZURE_TENANT_ID
+AZURE_SUBSCRIPTION_ID
+```
+
+E as seguintes variables:
+
+```text
+AZURE_RESOURCE_GROUP=rg-painel-nuvem
+AZURE_AKS_CLUSTER=<nome-do-cluster-aks>
+AZURE_ACR_NAME=<nome-unico-do-acr>
+KUBERNETES_NAMESPACE=aula-nuvem
+IMAGE_NAME=painel-nuvem
+```
+
+Se algum desses valores estiver ausente, o workflow para de executar com uma mensagem clara antes de tentar autenticar no Azure.
+
+#### Modelo prático para os alunos
+
+Use este modelo como referência para preencher os valores no GitHub e na Azure:
+
+```text
+Grupo de recursos: rg-painel-nuvem
+Localização: brazilsouth
+Nome do ACR: <nome-unico-do-acr>
+Nome do cluster AKS: <nome-do-cluster-aks>
+Namespace Kubernetes: aula-nuvem
+Nome da imagem: painel-nuvem
+```
+
+Para a autenticação com o GitHub Actions, a ideia é esta:
+
+1. criar uma identidade no Microsoft Entra ID;
+2. conceder permissões mínimas para o ACR e para o AKS;
+3. configurar a credencial federada do GitHub;
+4. colocar os identificadores no repositório GitHub como secrets.
+
+Esses valores são usados pelo workflow para que o GitHub Actions consiga:
+
+- entrar na Azure;
+- enviar a imagem Docker para o ACR;
+- obter as credenciais do AKS;
+- aplicar os manifestos Kubernetes.
+
+Em resumo:
+
+- o Docker cria a imagem localmente;
+- o GitHub Actions envia essa imagem para o ACR;
+- o AKS usa essa imagem para criar os containers da aplicação na nuvem.
+
 ## Dicas rápidas
 
 - Se a porta 3000 estiver ocupada, troque a porta do container ou encerre o processo conflitante.
