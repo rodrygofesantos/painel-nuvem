@@ -45,10 +45,10 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Baixar código do repositório
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Configurar Node.js 24
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: "24"
           cache: "npm"
@@ -74,7 +74,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Baixar código do repositório
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       # Autenticação no Azure usando OIDC: o GitHub Actions troca um token
       # de curta duração com o Microsoft Entra ID, sem usar client secret
