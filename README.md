@@ -494,6 +494,238 @@ AZURE_CLIENT_ID
 
 ---
 
+## Corrigir o erro `AZURE_CLIENT_ID` no GitHub Actions
+O workflow foi interrompido porque o GitHub ainda não sabe **qual identidade pode acessar sua conta Azure**.
+
+A solução é criar uma identidade de acesso na Azure e registrar o identificador dela no GitHub.
+
+> Faça uma etapa por vez. Ao concluir uma etapa, marque o item antes de seguir para a próxima.
+
+---
+
+### Visão geral: o que vamos fazer
+
+```
+Azure cria uma identidade
+        ↓
+GitHub recebe o identificador dessa identidade
+        ↓
+Azure autoriza essa identidade no projeto
+        ↓
+GitHub Actions consegue publicar a aplicação
+```
+
+---
+
+## Etapa 1 — Abrir o Microsoft Entra ID
+
+1. Acesse [portal.azure.com](https://portal.azure.com/).
+2. Na barra de pesquisa superior, pesquise por:
+
+```
+Microsoft Entra ID
+```
+3. Clique no resultado **Microsoft Entra ID**.
+4. No menu lateral, clique em:
+
+```
+Registros de aplicativo
+```
+5. Clique em:
+
+```
++ Novo registro
+```
+
+---
+
+## Etapa 2 — Criar a identidade do GitHub Actions
+Preencha a tela de criação desta forma:
+
+```
+Nome: github-actions-painel-nuvem
+Tipos de conta com suporte: Contas somente neste diretório organizacional
+URI de redirecionamento: deixe em branco
+```
+Clique em:
+
+```
+Registrar
+```
+A Azure abrirá a página da aplicação criada.
+
+> Concluído: agora existe uma identidade específica para o GitHub Actions. Ela não é uma pessoa, senha ou usuário. É uma identidade técnica da aplicação.
+
+---
+
+## Etapa 3 — Copiar o Client ID
+Na página da aplicação, localize:
+
+```
+ID do aplicativo (cliente)
+```
+
+1. Clique no ícone de cópia ao lado desse valor.
+2. Guarde-o temporariamente em um local seguro.
+Esse é o valor que será utilizado como `AZURE_CLIENT_ID`.
+
+> Não use o campo **ID do objeto**. O valor correto é somente o campo **ID do aplicativo (cliente)**.
+
+---
+
+## Etapa 4 — Cadastrar o Client ID no GitHub
+
+1. Abra o repositório do projeto no GitHub.
+2. Acesse:
+
+```
+Settings → Secrets and variables → Actions
+```
+3. Na área **Repository secrets**, clique em:
+
+```
+New repository secret
+```
+4. Preencha:
+
+```
+Name: AZURE_CLIENT_ID
+Secret: <cole-aqui-o-ID-do-aplicativo-cliente>
+```
+5. Clique em:
+
+```
+Add secret
+```
+Ao finalizar, a lista de secrets deve conter:
+
+```
+AZURE_CLIENT_ID
+AZURE_SUBSCRIPTION_ID
+AZURE_TENANT_ID
+```
+
+> Pare aqui por um momento: o erro `AZURE_CLIENT_ID` foi corrigido, mas o GitHub ainda precisa ser autorizado a usar essa identidade na Azure. Continue para a próxima etapa.
+
+---
+
+## Etapa 5 — Criar a credencial federada para o GitHub
+A credencial federada permite que o GitHub Actions se autentique na Azure sem salvar uma senha permanente no repositório.
+
+1. Volte à página da aplicação criada no **Microsoft Entra ID**.
+2. No menu lateral, clique em:
+
+```
+Certificados e segredos
+```
+3. Clique na aba:
+
+```
+Credenciais federadas
+```
+4. Clique em:
+
+```
++ Adicionar credencial
+```
+5. Em **Cenário de credencial federada**, escolha:
+
+```
+GitHub Actions implantando recursos do Azure
+```
+6. Preencha os dados do seu repositório:
+
+```
+Organização: <seu-usuário-ou-organização-no-github>
+Repositório: <nome-do-repositório>
+Tipo de entidade: Branch
+Branch: main
+Nome: github-actions-main
+```
+7. Clique em:
+
+```
+Adicionar
+```
+
+> Se a branch principal do repositório for `master`, informe `master` no lugar de `main`.
+
+---
+
+## Etapa 6 — Conceder acesso da identidade ao projeto na Azure
+Agora a identidade do GitHub existe, mas ainda não possui autorização para acessar os recursos do projeto.
+
+1. No portal Azure, pesquise por:
+
+```
+Grupos de recursos
+```
+2. Abra o grupo:
+
+```
+rg-painel-nuvem
+```
+3. No menu lateral, clique em:
+
+```
+Controle de acesso (IAM)
+```
+4. Clique em:
+
+```
++ Adicionar → Adicionar atribuição de função
+```
+5. Selecione a função:
+
+```
+Colaborador
+```
+6. Clique em **Avançar**.
+7. Em **Atribuir acesso a**, selecione:
+
+```
+Usuário, grupo ou entidade de serviço
+```
+8. Clique em:
+
+```
++ Selecionar membros
+```
+9. Pesquise pelo nome da identidade criada:
+
+```
+github-actions-painel-nuvem
+```
+10. Selecione a identidade, clique em **Selecionar**, depois em **Revisar + atribuir**.
+
+> Em um ambiente profissional, as permissões devem ser reduzidas ao mínimo necessário. Nesta atividade prática, a função **Colaborador** no grupo de recursos simplifica a configuração inicial.
+
+---
+
+## Etapa 7 — Executar o workflow novamente
+Volte ao GitHub:
+
+```
+Actions → escolha o workflow → Re-run jobs
+```
+O erro referente a `AZURE_CLIENT_ID` não deverá mais aparecer.
+
+---
+
+## Checklist final
+Antes de executar novamente o workflow, confira:
+
+- Criei o registro de aplicativo `github-actions-painel-nuvem`;
+- Copiei o campo **ID do aplicativo (cliente)**;
+- Criei o secret `AZURE_CLIENT_ID` no GitHub;
+- Cadastrei a credencial federada para o repositório e a branch correta;
+- Concedi a função **Colaborador** para a identidade no grupo `rg-painel-nuvem`;
+- Executei novamente o workflow.
+
+> Segurança: não crie um “segredo do cliente” para este fluxo. A autenticação será feita pela **credencial federada do GitHub**, sem precisar guardar uma senha da Azure no repositório.
+
+---
+
 ## 10. Cadastrar as variables
 Na seção **Variables**, cadastre os seguintes valores:
 
