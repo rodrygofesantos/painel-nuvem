@@ -159,12 +159,19 @@ jobs:
       - name: Publicar imagem no Azure Container Registry
         run: docker push "$ACR_LOGIN_SERVER/${{ env.IMAGE_NAME }}:$IMAGE_TAG"
 
+      - name: Instalar kubelogin para autenticação Entra no AKS
+        uses: azure/use-kubelogin@v1
+        with:
+          kubelogin-version: "v0.2.18"
+
       - name: Obter credenciais do cluster AKS Automatic
         run: |
+          set -euo pipefail
           az aks get-credentials \
             --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
             --name "${{ vars.AZURE_AKS_CLUSTER }}" \
             --overwrite-existing
+          kubelogin convert-kubeconfig --login azurecli
 
       - name: Preparar manifestos Kubernetes com namespace e imagem
         run: |
