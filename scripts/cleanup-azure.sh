@@ -11,11 +11,11 @@
 #   ./scripts/cleanup-azure.sh
 #
 # Variável de ambiente aceita:
-#   RESOURCE_GROUP (padrão: rg-aula-aks-auto)
+#   RESOURCE_GROUP (padrão: rg-painel-nuvem)
 
 set -euo pipefail
 
-RESOURCE_GROUP="${RESOURCE_GROUP:-rg-aula-aks-auto}"
+RESOURCE_GROUP="${RESOURCE_GROUP:-rg-painel-nuvem}"
 
 echo "==================================================================="
 echo "LIMPEZA DE RECURSOS DO LABORATÓRIO painel-nuvem"

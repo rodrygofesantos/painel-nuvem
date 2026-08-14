@@ -26,11 +26,15 @@ spec:
       labels:
         app: painel-nuvem
     spec:
+      # A aplicação não acessa a API do Kubernetes; não monte um token de
+      # ServiceAccount desnecessário dentro do contêiner.
+      automountServiceAccountToken: false
       # securityContext no nível do Pod: reforça que nenhum contêiner deste
       # Pod deve rodar como usuário root.
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
+        runAsGroup: 1000
         fsGroup: 1000
         seccompProfile:
           type: RuntimeDefault

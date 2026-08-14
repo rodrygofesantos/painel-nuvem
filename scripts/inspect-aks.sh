@@ -7,14 +7,14 @@
 #   ./scripts/inspect-aks.sh
 #
 # Variáveis de ambiente aceitas (todas têm valores padrão do laboratório):
-#   RESOURCE_GROUP  (padrão: rg-aula-aks-auto)
-#   AKS_CLUSTER     (padrão: aks-aula-auto)
+#   RESOURCE_GROUP  (padrão: rg-painel-nuvem)
+#   AKS_CLUSTER     (padrão: aks-painel-nuvem)
 #   NAMESPACE       (padrão: aula-nuvem)
 
 set -euo pipefail
 
-RESOURCE_GROUP="${RESOURCE_GROUP:-rg-aula-aks-auto}"
-AKS_CLUSTER="${AKS_CLUSTER:-aks-aula-auto}"
+RESOURCE_GROUP="${RESOURCE_GROUP:-rg-painel-nuvem}"
+AKS_CLUSTER="${AKS_CLUSTER:-aks-painel-nuvem}"
 NAMESPACE="${NAMESPACE:-aula-nuvem}"
 
 separador() {

@@ -195,7 +195,8 @@ Ao final, teremos:
 ---
 
 ### Antes de começar
-Você precisa ter o **Azure CLI** instalado e acesso a uma conta Azure com uma assinatura ativa.
+Você precisa ter o **Azure CLI 2.86.0 ou posterior** instalado e acesso a uma
+conta Azure com uma assinatura ativa.
 
 Abra o terminal:
 
@@ -211,6 +212,12 @@ Nome da imagem: painel-nuvem
 Namespace Kubernetes: aula-nuvem
 ```
 O nome do ACR será definido por cada aluno, pois ele precisa ser exclusivo no Azure.
+
+> **Aviso de custo:** não execute as etapas de criação sem confirmar a
+> assinatura e aceitar a cobrança. O ACR Basic tem custo recorrente; o AKS
+> Automatic cobra pelos recursos de computação utilizados, e o LoadBalancer/IP
+> público também pode gerar cobrança. Exclua o grupo de recursos ao terminar o
+> laboratório.
 
 ---
 
@@ -236,16 +243,17 @@ Para listar as assinaturas disponíveis, execute:
 ```bash
 az account list --output table
 ```
-Localize a assinatura que será utilizada. No exemplo desta aula:
+Localize a assinatura que será utilizada e confirme explicitamente que ela é
+a responsável pela cobrança. Não copie um ID de exemplo:
 
 ```
-Nome da assinatura: Azure subscription 1
-ID da assinatura: 487d9a8b-f30e-44d7-b6b7-6754be75e161
+Nome da assinatura: <nome-da-assinatura-confirmada>
+ID da assinatura: <id-da-assinatura-confirmada>
 ```
 Agora, selecione a assinatura pelo ID:
 
 ```bash
-az account set --subscription 487d9a8b-f30e-44d7-b6b7-6754be75e161
+az account set --subscription <id-da-assinatura-confirmada>
 ```
 Para confirmar qual assinatura está ativa, execute:
 
@@ -315,7 +323,11 @@ Substitua o nome abaixo pelo nome único que você escolheu e execute o comando:
 az acr create \
   --resource-group rg-painel-nuvem \
   --name acrpainelnuvemrodrigo2026 \
-  --sku Basic
+  --location brazilsouth \
+  --sku Basic \
+  --admin-enabled false \
+  --dnl-scope TenantReuse \
+  --role-assignment-mode rbac
 ```
 
 ### O que cada parte significa?
@@ -323,7 +335,11 @@ az acr create \
 - `az acr create`: cria um Azure Container Registry;
 - `--resource-group rg-painel-nuvem`: informa em qual grupo de recursos o ACR será criado;
 - `--name acrpainelnuvemrodrigo2026`: define o nome do registro;
-- `--sku Basic`: seleciona o plano Básico, adequado para estudos, testes e ambientes iniciais.
+- `--sku Basic`: seleciona o plano Básico, adequado para estudos, testes e ambientes iniciais;
+- `--admin-enabled false`: mantém desabilitada a conta administrativa local;
+- `--dnl-scope TenantReuse`: protege contra reutilização indevida do nome DNS;
+- `--role-assignment-mode rbac`: mantém compatibilidade com `AcrPush` e com o
+  `AcrPull` configurado por `--attach-acr`.
 
 > Importante: no seu projeto, use o mesmo nome do ACR em todos os comandos e configurações futuras.
 
@@ -352,9 +368,10 @@ az acr show \
 O resultado será semelhante a:
 
 ```
-acrpainelnuvemrodrigo2026.azurecr.io
+acrpainelnuvemrodrigo2026-<hash>.azurecr.io
 ```
-Esse endereço identifica o local onde as imagens Docker serão armazenadas.
+Esse endereço identifica o local onde as imagens Docker serão armazenadas. O
+sufixo é esperado porque `TenantReuse` protege o nome DNS contra reutilização.
 
 ---
 
@@ -365,13 +382,57 @@ Anote os valores abaixo. Eles serão utilizados na configuração do AKS e do Gi
 Grupo de recursos: rg-painel-nuvem
 Localização: brazilsouth
 Nome do ACR: acrpainelnuvemrodrigo2026
-Endereço do ACR: acrpainelnuvemrodrigo2026.azurecr.io
+Endereço do ACR: <valor-loginServer-retornado-pela-Azure>
 Nome do cluster AKS: será criado em etapa posterior
 Namespace Kubernetes: aula-nuvem
 Nome da imagem: painel-nuvem
 ```
 
 > Dica de organização: mantenha esses valores em um arquivo de anotações. Evite alterar nomes depois de iniciar a configuração, pois eles serão usados em vários arquivos e comandos.
+
+---
+
+## 8. Criar o AKS Automatic e preparar o namespace
+
+Somente depois da confirmação de custo, crie o cluster e vincule o ACR à
+identidade kubelet. A opção `--attach-acr` concede `AcrPull` ao AKS; ela não
+concede permissão de publicação ao GitHub Actions.
+
+```bash
+az aks create \
+  --resource-group rg-painel-nuvem \
+  --name aks-painel-nuvem \
+  --location brazilsouth \
+  --sku automatic \
+  --enable-hosted-system
+
+az aks update \
+  --resource-group rg-painel-nuvem \
+  --name aks-painel-nuvem \
+  --attach-acr <nome-unico-do-acr>
+```
+
+Crie o namespace uma única vez no bootstrap como **Managed Namespace**. Essa
+abordagem usa o plano de controle do Azure e dispensa conceder Cluster Admin à
+identidade que executa o bootstrap:
+
+```bash
+az aks namespace add \
+  --resource-group rg-painel-nuvem \
+  --cluster-name aks-painel-nuvem \
+  --name aula-nuvem \
+  --cpu-request 500m \
+  --cpu-limit 2000m \
+  --memory-request 512Mi \
+  --memory-limit 2Gi \
+  --ingress-policy AllowAll \
+  --egress-policy AllowAll \
+  --delete-policy Delete \
+  --labels finalidade=aula-implantacao-nuvem
+```
+
+O workflow não cria nem altera namespaces. Essa separação permite limitar sua
+identidade ao namespace `aula-nuvem`.
 
 ---
 
@@ -389,7 +450,7 @@ Para isso, o GitHub precisa de uma identidade autorizada a acessar a Azure. Essa
 
 ---
 
-## 8. Onde cadastrar os valores no GitHub
+## 9. Onde cadastrar os valores no GitHub
 No repositório GitHub do projeto, acesse:
 
 ```
@@ -648,57 +709,75 @@ Nome: github-actions-main
 Adicionar
 ```
 
-> Se a branch principal do repositório for `master`, informe `master` no lugar de `main`.
+Confira os claims antes de salvar. Eles devem ser exatamente:
+
+```text
+issuer: https://token.actions.githubusercontent.com
+audience: api://AzureADTokenExchange
+subject: repo:rodrygofesantos/painel-nuvem:ref:refs/heads/main
+```
+
+Alternativa equivalente pela Azure CLI, usando o Client ID do aplicativo:
+
+```bash
+az ad app federated-credential create \
+  --id <azure-client-id> \
+  --parameters '{"name":"github-actions-main","issuer":"https://token.actions.githubusercontent.com","subject":"repo:rodrygofesantos/painel-nuvem:ref:refs/heads/main","audiences":["api://AzureADTokenExchange"]}'
+```
+
+O deploy manual também deve selecionar a branch `main`; outra ref não corresponde
+ao `subject` federado e executa apenas o job de validação.
 
 ---
 
 ## Etapa 6 — Conceder acesso da identidade ao projeto na Azure
 Agora a identidade do GitHub existe, mas ainda não possui autorização para acessar os recursos do projeto.
 
-1. No portal Azure, pesquise por:
+Não conceda `Contributor` no grupo de recursos. Obtenha o **Object ID** do
+service principal (não o Client ID) e os escopos exatos:
 
+```bash
+GITHUB_SP_OBJECT_ID=$(az ad sp show --id <azure-client-id> --query id --output tsv)
+ACR_ID=$(az acr show --name <nome-unico-do-acr> --resource-group rg-painel-nuvem --query id --output tsv)
+AKS_ID=$(az aks show --name aks-painel-nuvem --resource-group rg-painel-nuvem --query id --output tsv)
+NAMESPACE_ID=$(az aks namespace show --name aula-nuvem --cluster-name aks-painel-nuvem --resource-group rg-painel-nuvem --query id --output tsv)
 ```
-Grupos de recursos
-```
-2. Abra o grupo:
 
-```
-rg-painel-nuvem
-```
-3. No menu lateral, clique em:
+Conceda somente:
 
-```
-Controle de acesso (IAM)
-```
-4. Clique em:
+```bash
+az role assignment create \
+  --assignee-object-id "$GITHUB_SP_OBJECT_ID" \
+  --assignee-principal-type ServicePrincipal \
+  --role AcrPush \
+  --scope "$ACR_ID"
 
-```
-+ Adicionar → Adicionar atribuição de função
-```
-5. Selecione a função:
+az role assignment create \
+  --assignee-object-id "$GITHUB_SP_OBJECT_ID" \
+  --assignee-principal-type ServicePrincipal \
+  --role "Container Registry Configuration Reader and Data Access Configuration Reader" \
+  --scope "$ACR_ID"
 
-```
-Colaborador
-```
-6. Clique em **Avançar**.
-7. Em **Atribuir acesso a**, selecione:
+az role assignment create \
+  --assignee-object-id "$GITHUB_SP_OBJECT_ID" \
+  --assignee-principal-type ServicePrincipal \
+  --role "Azure Kubernetes Service Cluster User Role" \
+  --scope "$AKS_ID"
 
+az role assignment create \
+  --assignee-object-id "$GITHUB_SP_OBJECT_ID" \
+  --assignee-principal-type ServicePrincipal \
+  --role "Azure Kubernetes Service RBAC Writer" \
+  --scope "$NAMESPACE_ID"
 ```
-Usuário, grupo ou entidade de serviço
-```
-8. Clique em:
 
-```
-+ Selecionar membros
-```
-9. Pesquise pelo nome da identidade criada:
-
-```
-github-actions-painel-nuvem
-```
-10. Selecione a identidade, clique em **Selecionar**, depois em **Revisar + atribuir**.
-
-> Em um ambiente profissional, as permissões devem ser reduzidas ao mínimo necessário. Nesta atividade prática, a função **Colaborador** no grupo de recursos simplifica a configuração inicial.
+`AcrPush` permite publicar a imagem. A função de leitura de configuração
+do ACR é adicional porque o workflow usa `az acr show` e `az acr login`, mas
+continua restrita ao registro. `Cluster User Role` permite obter o kubeconfig.
+`RBAC Writer`, restrita ao namespace, permite aplicar ConfigMap, Deployment e
+Service; ela não permite alterar namespaces, Roles ou RoleBindings. Observe que
+Writer pode ler Secrets do namespace, portanto não mantenha segredos de outras
+aplicações em `aula-nuvem`.
 
 ---
 
@@ -719,7 +798,7 @@ Antes de executar novamente o workflow, confira:
 - Copiei o campo **ID do aplicativo (cliente)**;
 - Criei o secret `AZURE_CLIENT_ID` no GitHub;
 - Cadastrei a credencial federada para o repositório e a branch correta;
-- Concedi a função **Colaborador** para a identidade no grupo `rg-painel-nuvem`;
+- Concedi apenas as funções de ACR e AKS descritas acima, nos escopos exatos;
 - Executei novamente o workflow.
 
 > Segurança: não crie um “segredo do cliente” para este fluxo. A autenticação será feita pela **credencial federada do GitHub**, sem precisar guardar uma senha da Azure no repositório.
@@ -816,8 +895,8 @@ Variables:
 
 ```text
 AZURE_RESOURCE_GROUP=rg-painel-nuvem
-AZURE_AKS_CLUSTER=aks-aula-auto
-AZURE_ACR_NAME=acraula123
+AZURE_AKS_CLUSTER=aks-painel-nuvem
+AZURE_ACR_NAME=<nome-unico-do-acr>
 KUBERNETES_NAMESPACE=aula-nuvem
 IMAGE_NAME=painel-nuvem
 ```

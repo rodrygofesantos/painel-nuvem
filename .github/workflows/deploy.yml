@@ -15,11 +15,9 @@ on:
       - main
   workflow_dispatch: {}
 
-# Permissões mínimas necessárias. "id-token: write" é o que permite ao
-# GitHub Actions solicitar um token OIDC de curta duração para se autenticar
-# no Azure, sem a necessidade de um client secret armazenado no repositório.
+# Permissão global de leitura. O token OIDC é liberado somente no job de
+# implantação, portanto pull requests não recebem id-token: write.
 permissions:
-  id-token: write
   contents: read
 
 # Evita que duas implantações rodem ao mesmo tempo para o mesmo branch.
@@ -69,9 +67,16 @@ jobs:
   implantar:
     name: Publicar imagem e implantar no AKS
     needs: validar
-    if: github.event_name != 'pull_request'
+    # A credencial federada confia exclusivamente na ref refs/heads/main.
+    # Disparos manuais feitos a partir de outra ref executam só a validação.
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - name: Baixar código do repositório
         uses: actions/checkout@v5
@@ -87,6 +92,8 @@ jobs:
           AZURE_ACR_NAME: ${{ vars.AZURE_ACR_NAME }}
           AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
           AZURE_AKS_CLUSTER: ${{ vars.AZURE_AKS_CLUSTER }}
+          KUBERNETES_NAMESPACE: ${{ vars.KUBERNETES_NAMESPACE }}
+          IMAGE_NAME: ${{ vars.IMAGE_NAME }}
         run: |
           set -euo pipefail
           missing=()
@@ -96,11 +103,23 @@ jobs:
           [ -n "$AZURE_ACR_NAME" ] || missing+=("AZURE_ACR_NAME")
           [ -n "$AZURE_RESOURCE_GROUP" ] || missing+=("AZURE_RESOURCE_GROUP")
           [ -n "$AZURE_AKS_CLUSTER" ] || missing+=("AZURE_AKS_CLUSTER")
+          [ -n "$KUBERNETES_NAMESPACE" ] || missing+=("KUBERNETES_NAMESPACE")
+          [ -n "$IMAGE_NAME" ] || missing+=("IMAGE_NAME")
 
           if [ ${#missing[@]} -gt 0 ]; then
             echo "Configuração incompleta no GitHub para deploy na Azure." >&2
             echo "Defina os seguintes secrets/variables antes de executar o workflow:" >&2
             printf ' - %s\n' "${missing[@]}" >&2
+            exit 1
+          fi
+
+          if [ "$KUBERNETES_NAMESPACE" != "aula-nuvem" ]; then
+            echo "KUBERNETES_NAMESPACE deve ser 'aula-nuvem'." >&2
+            exit 1
+          fi
+
+          if [ "$IMAGE_NAME" != "painel-nuvem" ]; then
+            echo "IMAGE_NAME deve ser 'painel-nuvem'." >&2
             exit 1
           fi
 
@@ -151,28 +170,31 @@ jobs:
         run: |
           set -euo pipefail
           export NAMESPACE="${{ env.KUBERNETES_NAMESPACE }}"
-          sed "s|NAMESPACE_PLACEHOLDER|$NAMESPACE|g" manifests/namespace.yaml > manifests/namespace.gerado.yaml
-          sed "s|NAMESPACE_PLACEHOLDER|$NAMESPACE|g" manifests/configmap.yaml > manifests/configmap.gerado.yaml
-          sed "s|NAMESPACE_PLACEHOLDER|$NAMESPACE|g" manifests/service.yaml > manifests/service.gerado.yaml
+          MANIFEST_DIR="$RUNNER_TEMP/painel-nuvem-manifests"
+          mkdir -p "$MANIFEST_DIR"
+          echo "MANIFEST_DIR=$MANIFEST_DIR" >> "$GITHUB_ENV"
+          sed "s|NAMESPACE_PLACEHOLDER|$NAMESPACE|g" manifests/configmap.yaml > "$MANIFEST_DIR/configmap.yaml"
+          sed "s|NAMESPACE_PLACEHOLDER|$NAMESPACE|g" manifests/service.yaml > "$MANIFEST_DIR/service.yaml"
           sed \
             -e "s|NAMESPACE_PLACEHOLDER|$NAMESPACE|g" \
             -e "s|IMAGE_PLACEHOLDER|$ACR_LOGIN_SERVER/${{ env.IMAGE_NAME }}:$IMAGE_TAG|g" \
-            manifests/deployment.yaml > manifests/deployment.gerado.yaml
-          echo "Manifestos preparados para o namespace: $NAMESPACE"
-          echo "--- deployment ---"
-          cat manifests/deployment.gerado.yaml
+            manifests/deployment.yaml > "$MANIFEST_DIR/deployment.yaml"
 
-      - name: Criar ou atualizar o namespace do laboratório
-        run: kubectl apply -f manifests/namespace.gerado.yaml
+          if grep -R -E 'NAMESPACE_PLACEHOLDER|IMAGE_PLACEHOLDER' "$MANIFEST_DIR"; then
+            echo "Um placeholder não foi substituído nos manifestos." >&2
+            exit 1
+          fi
+
+          echo "Manifestos preparados para o namespace: $NAMESPACE"
 
       - name: Aplicar ConfigMap
-        run: kubectl apply -f manifests/configmap.gerado.yaml
+        run: kubectl apply -f "$MANIFEST_DIR/configmap.yaml"
 
       - name: Aplicar Deployment
-        run: kubectl apply -f manifests/deployment.gerado.yaml
+        run: kubectl apply -f "$MANIFEST_DIR/deployment.yaml"
 
       - name: Aplicar Service
-        run: kubectl apply -f manifests/service.gerado.yaml
+        run: kubectl apply -f "$MANIFEST_DIR/service.yaml"
 
       - name: Acompanhar o rollout do Deployment
         run: |
