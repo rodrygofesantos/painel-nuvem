@@ -19,6 +19,393 @@ A aplicação já foi validada localmente com sucesso:
 - pode ser executado em um container Docker;
 - é uma base prática para CI/CD e implantação em nuvem.
 
+## Roteiro rápido para os alunos
+
+Esta seção foi escrita para ser seguida **uma etapa por vez**. Não tente
+executar todos os comandos de uma só vez.
+
+Use este método durante a atividade:
+
+1. Leia somente o passo atual.
+2. Execute apenas o bloco de comando daquele passo.
+3. Compare sua tela com o resultado esperado.
+4. Marque o passo como concluído.
+5. Somente então avance para o próximo passo.
+
+> Se um passo apresentar erro, pare nele. Não continue esperando que o erro se
+> resolva sozinho. Leia a seção [Erros comuns](#erros-comuns-ao-rodar-o-app) ou
+> peça ajuda mostrando o comando executado e a mensagem completa do erro.
+
+### Caminho 1 — Rodar o app diretamente com Node.js
+
+Este é o caminho recomendado para a primeira execução.
+
+#### Passo 1 — Abrir o terminal na pasta correta
+
+Abra a pasta `painel-nuvem` no VS Code e depois abra **Terminal → New
+Terminal**.
+
+Confira se o terminal está na pasta do projeto:
+
+```bash
+pwd
+```
+
+No PowerShell do Windows, você também pode usar:
+
+```powershell
+Get-Location
+```
+
+O caminho exibido deve terminar em `painel-nuvem`.
+
+- [ ] Estou dentro da pasta `painel-nuvem`.
+
+#### Passo 2 — Conferir o Node.js e o npm
+
+Execute:
+
+```bash
+node --version
+npm --version
+```
+
+Resultado esperado:
+
+- o primeiro comando começa com `v24`;
+- o segundo comando mostra a versão do npm;
+- nenhum dos comandos mostra “command not found” ou “não é reconhecido”.
+
+- [ ] O Node.js 24 e o npm estão disponíveis.
+
+#### Passo 3 — Instalar as dependências
+
+Execute:
+
+```bash
+npm ci
+```
+
+Aguarde o terminal terminar. O comando deve voltar a mostrar o cursor sem uma
+mensagem de erro.
+
+> Não feche o terminal enquanto o npm estiver trabalhando.
+
+- [ ] O comando `npm ci` terminou sem erro.
+
+#### Passo 4 — Executar os testes
+
+Execute:
+
+```bash
+npm test
+```
+
+Resultado esperado no resumo:
+
+```text
+tests 3
+pass 3
+fail 0
+```
+
+Se aparecer `fail 1` ou outro valor maior que zero, pare e corrija o problema
+antes de iniciar o servidor.
+
+- [ ] Os três testes passaram.
+
+#### Passo 5 — Iniciar o servidor
+
+Execute:
+
+```bash
+npm start
+```
+
+O terminal ficará ocupado enquanto o servidor estiver rodando. **Isso é
+normal.** Não feche esse terminal.
+
+- [ ] O servidor iniciou sem erro.
+
+#### Passo 6 — Abrir a aplicação
+
+Abra o navegador e teste estes três endereços, um por vez:
+
+1. [http://localhost:3000](http://localhost:3000)
+2. [http://localhost:3000/healthz](http://localhost:3000/healthz)
+3. [http://localhost:3000/api/info](http://localhost:3000/api/info)
+
+Resultados esperados:
+
+- a página principal mostra o Painel Nuvem;
+- `/healthz` mostra `ok`;
+- `/api/info` mostra informações em formato JSON.
+
+- [ ] A página principal abriu.
+- [ ] O endpoint `/healthz` respondeu `ok`.
+- [ ] O endpoint `/api/info` mostrou um JSON.
+
+#### Passo 7 — Parar o servidor
+
+Volte ao terminal em que executou `npm start` e pressione:
+
+```text
+Ctrl + C
+```
+
+O cursor do terminal deve reaparecer.
+
+- [ ] O servidor local foi encerrado.
+
+### Caminho 2 — Rodar o app com Docker
+
+Faça este caminho somente depois que o Caminho 1 estiver funcionando.
+
+#### Passo 1 — Conferir o Docker
+
+Abra o Docker Desktop, aguarde ele iniciar e execute:
+
+```bash
+docker version
+```
+
+O comando deve mostrar informações de `Client` e `Server`.
+
+- [ ] O Docker está em execução.
+
+#### Passo 2 — Construir a imagem
+
+Execute na pasta do projeto:
+
+```bash
+docker build -t painel-nuvem:validacao .
+```
+
+O ponto final (`.`) faz parte do comando. Aguarde até aparecer uma mensagem de
+conclusão sem erro.
+
+- [ ] A imagem `painel-nuvem:validacao` foi construída.
+
+#### Passo 3 — Iniciar o container
+
+Execute:
+
+```bash
+docker run --rm -d \
+  --name painel-nuvem \
+  -p 3000:3000 \
+  painel-nuvem:validacao
+```
+
+No PowerShell, se a quebra de linha causar erro, use o comando em uma linha:
+
+```powershell
+docker run --rm -d --name painel-nuvem -p 3000:3000 painel-nuvem:validacao
+```
+
+- [ ] O Docker exibiu o identificador do container.
+
+#### Passo 4 — Conferir o container e a saúde
+
+Execute:
+
+```bash
+docker ps
+docker logs painel-nuvem
+curl http://localhost:3000/healthz
+```
+
+Resultado esperado: o container aparece como ativo e o último comando responde
+`ok`.
+
+No PowerShell, se `curl` não funcionar como esperado, use:
+
+```powershell
+(Invoke-WebRequest http://localhost:3000/healthz).Content
+```
+
+- [ ] O container está ativo.
+- [ ] O endpoint de saúde respondeu `ok`.
+
+#### Passo 5 — Parar o container
+
+Execute:
+
+```bash
+docker stop painel-nuvem
+```
+
+- [ ] O container foi encerrado.
+
+### Erros comuns ao rodar o app
+
+| Mensagem ou situação | O que conferir |
+| --- | --- |
+| `node: command not found` ou “node não é reconhecido” | Instale o Node.js 24, feche o terminal e abra outro. |
+| `npm ci` informa versão de Node incompatível | Confirme com `node --version`. A versão deve começar com `v24`. |
+| `EADDRINUSE` ou “porta 3000 em uso” | Já existe outro servidor/container usando a porta. Volte ao terminal anterior e pressione `Ctrl + C`, ou execute `docker stop painel-nuvem`. |
+| A página não abre | Confirme que `npm start` continua rodando e use exatamente `http://localhost:3000`. |
+| Docker informa que não consegue acessar o daemon | Abra o Docker Desktop e aguarde a inicialização completa. |
+| O nome `painel-nuvem` já está em uso no Docker | Execute `docker stop painel-nuvem` e tente novamente. |
+| `/healthz` não responde `ok` | Leia `docker logs painel-nuvem` ou a mensagem do terminal que executa `npm start`. |
+
+## Como usar o prompt da atividade
+
+### O que é um prompt?
+
+Um **prompt** é o texto com as instruções entregues ao assistente de IA. Ele
+explica o objetivo, os limites de segurança, os arquivos que devem ser lidos e
+o resultado esperado.
+
+Nesta atividade, o prompt orienta o assistente a revisar e publicar o projeto
+usando Docker, GitHub Actions, Azure Container Registry e AKS Automatic.
+
+> O prompt ajuda na execução, mas não substitui a conferência do aluno. Leia o
+> plano, os comandos e os avisos de custo antes de responder `sim` ou
+> `confirmo`.
+
+### Antes de enviar o prompt
+
+Conclua esta lista:
+
+- [ ] Abri a pasta correta do repositório no assistente de IA.
+- [ ] Executei `npm ci`, `npm test` e o build Docker local.
+- [ ] Entendi que AKS, ACR, IP público e monitoramento podem gerar cobrança.
+- [ ] Sei qual assinatura Azure será usada.
+- [ ] Não coloquei senha, token, client secret ou dados de pagamento no prompt.
+- [ ] Fiz commit ou backup das alterações importantes.
+
+### Passo a passo para usar o prompt
+
+#### Passo 1 — Abrir o projeto
+
+Abra o assistente de IA com a pasta `painel-nuvem` como pasta de trabalho. O
+assistente precisa conseguir ler arquivos como `README.md`, `Dockerfile`,
+`package.json`, `.github/workflows/deploy.yml` e `manifests/`.
+
+#### Passo 2 — Iniciar uma conversa nova
+
+Use uma conversa nova para não misturar esta atividade com pedidos antigos.
+
+#### Passo 3 — Colar o prompt completo
+
+Cole o prompt fornecido pelo professor **do começo ao fim**. Não remova as
+partes “Objetivo”, “Siga rigorosamente estas instruções” e “Importante”.
+
+Depois do prompt, acrescente:
+
+```text
+Comece inspecionando o repositório. Explique somente o próximo passo e aguarde
+minha confirmação antes de criar recursos que geram custo ou excluir algo.
+```
+
+#### Passo 4 — Conferir a inspeção
+
+Antes de permitir alterações, verifique se o assistente identificou:
+
+- Node.js 24 e porta `3000`;
+- teste com `npm test`;
+- endpoint `/healthz`;
+- Dockerfile existente;
+- workflow `.github/workflows/deploy.yml`;
+- namespace `aula-nuvem`;
+- Service do tipo `LoadBalancer`.
+
+Se algo estiver errado, não responda apenas `sim`. Escreva qual informação
+precisa ser corrigida.
+
+#### Passo 5 — Ler o plano e o aviso de custo
+
+O assistente deve apresentar os recursos, a região, os nomes propostos, as
+permissões e o alerta de cobrança.
+
+Confirme a criação somente se o plano estiver correto e você estiver autorizado
+a usar a assinatura. Uma resposta clara pode ser:
+
+```text
+Confirmo a criação dos recursos descritos no plano e estou ciente dos custos.
+```
+
+#### Passo 6 — Fazer autenticações pessoalmente
+
+Quando aparecer uma etapa de login:
+
+1. abra o link indicado;
+2. entre com sua própria conta;
+3. conclua MFA, se solicitado;
+4. volte à conversa e responda `concluído`.
+
+Nunca envie ao assistente:
+
+- senha;
+- número de cartão;
+- código temporário de MFA;
+- token de acesso;
+- client secret.
+
+IDs como `Subscription ID`, `Tenant ID` e `Client ID` não são senhas, mas ainda
+devem ser tratados com cuidado e não devem ser publicados em prints ou fóruns.
+
+#### Passo 7 — Avançar uma etapa por vez
+
+Use mensagens curtas e específicas:
+
+```text
+Explique o próximo passo com um comando por vez.
+```
+
+```text
+Mostre o resultado esperado antes de executar.
+```
+
+```text
+Pare antes de qualquer ação que gere custo ou exclua recursos.
+```
+
+```text
+O comando falhou. Analise esta mensagem de erro: <cole o erro aqui>.
+```
+
+Evite enviar vários `sim` seguidos sem ler o que será feito.
+
+#### Passo 8 — Conferir as evidências finais
+
+Ao terminar, peça e confira:
+
+- [ ] resultado de `npm test`;
+- [ ] resultado do build Docker;
+- [ ] nome e tag da imagem no ACR;
+- [ ] link da execução do GitHub Actions;
+- [ ] dois Pods em estado `Running`;
+- [ ] rollout concluído;
+- [ ] IP externo do Service;
+- [ ] resposta `ok` de `/healthz`;
+- [ ] comandos de diagnóstico e limpeza;
+- [ ] confirmação de que nenhum segredo foi salvo no GitHub.
+
+### Se você perder a concentração ou não souber onde parou
+
+Não reinicie tudo. Envie ao assistente:
+
+```text
+Resuma o que já foi concluído, mostre o que ainda falta e apresente somente o
+próximo passo. Não execute nada até eu confirmar.
+```
+
+Também pode ajudar:
+
+- fechar abas que não são usadas na etapa atual;
+- manter somente um terminal para o servidor e outro para comandos;
+- marcar as caixas de seleção deste README;
+- trabalhar por blocos curtos e fazer uma pausa entre as etapas;
+- anotar o último passo concluído antes de interromper a atividade.
+
+### Regra de segurança mais importante
+
+Nunca peça ao assistente para “apagar tudo” sem informar o nome exato do recurso
+e entender o impacto. Para laboratórios Azure, primeiro confira os recursos e
+somente depois use o script de limpeza documentado neste repositório.
+
 ## Requisitos
 
 Antes de começar, instale:
